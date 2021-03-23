@@ -1,0 +1,273 @@
+\documentclass{article}
+
+\usepackage{fullpage}
+\usepackage{amsmath, mathtools, mathpartir}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Syntax
+
+% Sorts
+
+\def\Exp{\text{Exp}}
+\def\Typ{\text{Typ}}
+
+% Expressions and Types
+
+\newcommand\Lam[3]{\lambda #1\!:\!#2 . #3}
+\newcommand\App[2]{#1~#2}
+\def\Num{\normalfont\texttt{num}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Semantics
+
+% Rules
+
+\def\TVar{\textsc{TVar}}
+\def\TLam{\textsc{TLam}}
+\def\TApp{\textsc{TApp}}
+\def\TNum{\textsc{TNum}}
+\def\TPlus{\textsc{TPlus}}
+\def\VLam{\textsc{VLam}}
+\def\VNum{\textsc{VNum}}
+\def\SSAppCOne{\textsc{SSApp1}}
+\def\SSAppCTwo{\textsc{SSApp2}}
+\def\SSAppR{\textsc{SSLam}}
+\def\SSPlusCOne{\textsc{SSPlusC1}}
+\def\SSPlusCTwo{\textsc{SSPlusC2}}
+\def\SSPlusR{\textsc{SSPlusR}}
+
+% Judgments
+
+\newcommand\hastype[3][\Gamma]{#1 \vdash #2 : #3}
+\newcommand\isval[1]{#1~\mathsf{\normalfont val}}
+\def\smallstep{\longrightarrow}
+
+% Helpers
+
+\newcommand\subst[3]{[#1/#2]#3}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theorems and Proofs
+
+\usepackage{amsthm}
+\newtheorem{Theorem}{Theorem}
+\newtheorem{Lemma}[Theorem]{Lemma}
+
+\usepackage{pfsteps}
+\renewcommand\byCasesEveryCase{}
+\setlength{\proofrightwidth}{0.4\linewidth}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{The Simply Typed Lambda Calculus}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Formalism}
+
+\subsection{Syntax}
+
+\[
+  \arraycolsep=0pt
+  \begin{array}{l@{~~}c@{~~}l}
+    \Exp &   e  & \Coloneqq x \mid \Lam{x}{\tau}{e} \mid \App{e}{e} \mid n \mid e + e \\
+    \Typ & \tau & \Coloneqq \tau \to \tau \mid \Num \\
+  \end{array}
+\]
+
+\subsection{Static Semantics}
+
+$\boxed{\hastype{e}{\tau}}$
+
+\begin{mathpar}
+  \inferrule[\TVar]{
+    x : \tau \in \Gamma
+  }{
+    \hastype{x}{\tau}
+  }
+
+  \inferrule[\TLam]{
+    \hastype[\Gamma, x : \tau_1]{e}{\tau_2}
+  }{
+    \hastype{ (\Lam{x}{\tau_1}{e}) }{\tau_1 \to \tau_2}
+  }
+
+  \inferrule[\TApp]{
+    \hastype{e_1}{\tau_{11} \to \tau_{12}}
+    \\
+    \hastype{e_2}{\tau_{11}}
+  }{
+    \hastype{ (\App{e_1}{e_2}) }{\tau_{12}}
+  }
+
+  \inferrule[\TNum]{
+  }{
+    \hastype[]{n}{\Num}
+  }
+
+  \inferrule[\TPlus]{
+    \hastype{e_1}{\Num}
+    \\
+    \hastype{e_2}{\Num}
+  }{
+    \hastype{ (e_1 + e_2) }{\Num}
+  }
+\end{mathpar}
+
+\subsection{Dynamic Semantics}
+
+$\boxed{\isval{e}}$
+
+\begin{mathpar}
+  \inferrule[\VLam]{
+  }{
+    \isval{(\Lam{x}{\tau}{e})}
+  }
+
+  \inferrule[\VNum]{
+  }{
+    \isval{n}
+  }
+\end{mathpar}
+
+\noindent
+$\boxed{e \smallstep e}$
+
+\begin{mathpar}
+  \inferrule[\SSAppCOne]{
+    e_1 \smallstep e_1'
+  }{
+    \App{e_1}{e_2} \smallstep \App{e_1'}{e_2}
+  }
+
+  \inferrule[\SSAppCTwo]{
+    \isval{e_1}
+    \\
+    e_2 \smallstep e_2'
+  }{
+    \App{e_1}{e_2} \smallstep \App{e_1}{e_2'}
+  }
+
+  \inferrule[\SSAppR]{
+    \isval{e_2}
+  }{
+    \App{ (\Lam{x}{\tau_{11}}{e_{12}}) }{e_2} \smallstep \subst{x}{e_2}{e_{12}}
+  }
+
+  \inferrule[\SSPlusCOne]{
+    e_1 \smallstep e_1'
+  }{
+    e_1 + e_2 \smallstep e_1' + e_2
+  }
+
+  \inferrule[\SSPlusCTwo]{
+    \isval{e_1}
+    \\
+    e_2 \smallstep e_2'
+  }{
+    e_1 + e_2 \smallstep e_1 + e_2'
+  }
+
+  \inferrule[\SSPlusR]{
+    \isval{e_1}
+    \\
+    \isval{e_2}
+  }{
+    e_1 + e_2 \smallstep n
+  }~{n = e_1 + e_2}
+\end{mathpar}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\subsection{Properties and Proofs}
+
+\resetpfcounter
+\begin{Lemma}[Canonical Forms]
+  \label{theorem:Canonical Forms}
+  If \usepfcounter[CF:e is closed and well typed] $\hastype[]{e}{\tau}$
+  and \usepfcounter[CF:e is a value] $\isval{e}$
+  then all of the following are true:
+  \begin{enumerate}
+    \item
+        If $\tau = \tau_{11} \to \tau_{12}$,
+      then $e = \Lam{x}{\tau_{11}}{e_{12}}$
+      and $\hastype[\Gamma, x : \tau_{11}]{e_{12}}{\tau_{12}}$.
+    \item
+        If $\tau = \Num$,
+        then $e = n$.
+  \end{enumerate}
+\end{Lemma}
+
+The Canonical Forms lemma says that
+  if we know an expression is closed and well-typed,
+  and it is a value,
+  then we know which syntactic forms it could be.
+
+\begin{proof}
+  By rule induction on \pfref{CF:e is a value}:
+  \begin{byCases}
+    \case{\VLam}
+      \begin{pfsteps}
+        \item @{CF:VLam:step 1} \ldots
+        \item @{CF:VLam:step 2} \ldots
+        \item @{CF:VLam:step 3} \ldots    \BY{IH on \pfref{CF:VLam:step 1, CF:VLam:step 2}}
+      \end{pfsteps}
+    \case{\VNum}
+  \end{byCases}
+\end{proof}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: The Inversion lemma (for typing judgments) says that if the conclusion of a (typing) rule is true, then so are its premises.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: The (Closed) Substitution lemma says that substitution preserves types.
+
+% % \resetpfcounter
+% \begin{Lemma}[Substitution]
+%   \label{thm:preservation}
+%   If \usepfcounter[Substitution:x types e] $\hastype[x : \tau']{e}{\tau}$
+%   and \usepfcounter[Substitution:e' types] $\hastype[]{e'}{\tau'}$
+%   then $\hastype[]{\subst{e'}{x}{e}}{\tau}$.
+% \end{Lemma}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \resetpfcounter
+\begin{Theorem}[Progress]
+  \label{theorem:Progress}
+  If \usepfcounter[Progress:e is closed and well typed]~$\hastype[]{e}{\tau}$
+  then either $e \smallstep e'$
+  or $\isval{e'}$.
+\end{Theorem}
+
+The Progress theorem says a closed, well-typed expression is either a value or on its way to becoming one.
+
+\begin{proof}
+  By rule induction on \pfref{Progress:e is closed and well typed}:
+  \begin{byCases}
+    \item[\TVar]
+  \end{byCases}
+\end{proof}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: The Preservation theorem says that stepping preserves types.
+
+% \resetpfcounter
+\begin{Theorem}[Preservation]
+  % \label{thm:preservation}
+  If \usepfcounter[Preservation:e types] $\hastype[]{e}{\tau}$
+  and \usepfcounter[Preservation:e steps] $e \smallstep e'$
+  then $\hastype[]{e'}{\tau}$.
+\end{Theorem}
+
+\end{document}
